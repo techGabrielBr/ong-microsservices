@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: conexao-solidaria
+    orgId: 1
+    folder: Conexao Solidaria
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards

@@ -1,0 +1,8 @@
+FROM grafana/grafana:11.2.0
+
+# O download do plugin do Zabbix sai do container; em redes com inspecao TLS a CA
+# precisa estar no trust store, senao o grafana-cli falha na verificacao do certificado.
+USER root
+COPY deploy/cert[s]/ /usr/local/share/ca-certificates/
+RUN update-ca-certificates >/dev/null 2>&1 || true
+USER grafana

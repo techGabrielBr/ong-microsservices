@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>dotnet-ConexaoSolidaria.Worker-8718e1d2-225a-4fee-ab2f-86e1b1613bb3</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+
+    <PackageReference Include="prometheus-net.AspNetCore" Version="8.2.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ConexaoSolidaria.Domain\ConexaoSolidaria.Domain.csproj" />
+    <ProjectReference Include="..\ConexaoSolidaria.Contracts\ConexaoSolidaria.Contracts.csproj" />
+    <ProjectReference Include="..\ConexaoSolidaria.Infrastructure\ConexaoSolidaria.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

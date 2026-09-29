@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: conexao-solidaria-config
+  namespace: conexao-solidaria
+data:
+  ASPNETCORE_ENVIRONMENT: "Production"
+  ASPNETCORE_URLS: "http://+:8080"
+  ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=conexaosolidaria;Username=postgres;Password=postgres"
+  Messaging__Provider: "RabbitMq"
+  Messaging__RabbitMq__Host: "rabbitmq"
+  Messaging__RabbitMq__Port: "5672"
+  Messaging__RabbitMq__Usuario: "guest"
+  Messaging__RabbitMq__Senha: "guest"
+  Aws__Region: "us-east-1"
+  Aws__ServiceUrl: "http://localstack:4566"
+  Aws__TabelaDoacoes: "doacoes"
+  Jwt__Issuer: "conexao-solidaria"
+  Jwt__Audience: "conexao-solidaria-clients"

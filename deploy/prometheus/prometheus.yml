@@ -1,0 +1,33 @@
+global:
+  scrape_interval: 10s
+  evaluation_interval: 10s
+
+scrape_configs:
+  - job_name: conexao-solidaria-api
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["api:8080"]
+        labels:
+          servico: api
+
+  - job_name: conexao-solidaria-worker
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["worker:8080"]
+        labels:
+          servico: worker
+
+  - job_name: conexao-solidaria-gateway
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["gateway:8080"]
+        labels:
+          servico: gateway
+
+  - job_name: containers-cadvisor
+    static_configs:
+      - targets: ["cadvisor:8080"]
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

@@ -1,0 +1,34 @@
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+
+# CAs extras para redes com inspecao TLS (antivirus/proxy corporativo); pasta vazia = no-op
+COPY deploy/cert[s]/ /usr/local/share/ca-certificates/
+RUN update-ca-certificates >/dev/null 2>&1 || true
+
+# copia apenas os .csproj primeiro para aproveitar o cache de restore do docker
+COPY ConexaoSolidaria.slnx ./
+COPY src/ConexaoSolidaria.Domain/*.csproj src/ConexaoSolidaria.Domain/
+COPY src/ConexaoSolidaria.Contracts/*.csproj src/ConexaoSolidaria.Contracts/
+COPY src/ConexaoSolidaria.Infrastructure/*.csproj src/ConexaoSolidaria.Infrastructure/
+COPY src/ConexaoSolidaria.Api/*.csproj src/ConexaoSolidaria.Api/
+COPY src/ConexaoSolidaria.Worker/*.csproj src/ConexaoSolidaria.Worker/
+COPY src/ConexaoSolidaria.Gateway/*.csproj src/ConexaoSolidaria.Gateway/
+COPY tests/ConexaoSolidaria.Domain.Tests/*.csproj tests/ConexaoSolidaria.Domain.Tests/
+RUN dotnet restore src/ConexaoSolidaria.Api/ConexaoSolidaria.Api.csproj
+
+COPY . .
+RUN dotnet publish src/ConexaoSolidaria.Api/ConexaoSolidaria.Api.csproj -c Release -o /app/publish --no-restore
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+WORKDIR /app
+
+# curl atende o HEALTHCHECK do docker compose; no Kubernetes quem sonda e o kubelet
+RUN apt-get update     && apt-get install -y --no-install-recommends curl     && rm -rf /var/lib/apt/lists/*
+
+COPY --from=build /app/publish .
+
+ENV ASPNETCORE_URLS=http://+:8080
+EXPOSE 8080
+USER $APP_UID
+
+ENTRYPOINT ["dotnet", "ConexaoSolidaria.Api.dll"]

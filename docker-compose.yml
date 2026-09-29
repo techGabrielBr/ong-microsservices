@@ -1,0 +1,253 @@
+name: conexao-solidaria
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: cs-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: conexaosolidaria
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d conexaosolidaria"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: cs-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  localstack:
+    image: localstack/localstack:3.8
+    container_name: cs-localstack
+    environment:
+      SERVICES: dynamodb,sqs,sns
+      DEBUG: 0
+      AWS_DEFAULT_REGION: us-east-1
+      LOCALSTACK_HOST: localstack
+    ports:
+      - "4566:4566"
+    volumes:
+      - ./deploy/localstack:/etc/localstack/init/ready.d
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:4566/_localstack/health | grep -qE '\"dynamodb\": \"(available|running)\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
+  api:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.api
+    container_name: cs-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=conexaosolidaria;Username=postgres;Password=postgres
+      Messaging__Provider: RabbitMq
+      Messaging__RabbitMq__Host: rabbitmq
+      Aws__ServiceUrl: http://localstack:4566
+      Jwt__SigningKey: chave-de-desenvolvimento-conexao-solidaria-2026-min-32-chars
+    ports:
+      - "5080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health/ready || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  worker:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.worker
+    container_name: cs-worker
+    depends_on:
+      api:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=conexaosolidaria;Username=postgres;Password=postgres
+      Messaging__Provider: RabbitMq
+      Messaging__RabbitMq__Host: rabbitmq
+      Aws__ServiceUrl: http://localstack:4566
+    ports:
+      - "5081:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health/ready || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  gateway:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.gateway
+    container_name: cs-gateway
+    depends_on:
+      - api
+      - worker
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health/live || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: cs-prometheus
+    volumes:
+      - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+
+  grafana:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.grafana
+    image: conexao-solidaria/grafana:11.2.0
+    container_name: cs-grafana
+    depends_on:
+      - prometheus
+      - zabbix-web
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_INSTALL_PLUGINS: alexanderzobnin-zabbix-app
+      GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: alexanderzobnin-zabbix-datasource
+    volumes:
+      - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deploy/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: cs-cadvisor
+    ports:
+      - "8081:8080"
+    command:
+      - --docker_only=true
+      - --housekeeping_interval=10s
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    privileged: true
+
+  zabbix-db:
+    image: postgres:16-alpine
+    container_name: cs-zabbix-db
+    environment:
+      POSTGRES_USER: zabbix
+      POSTGRES_PASSWORD: zabbix
+      POSTGRES_DB: zabbix
+    volumes:
+      - zabbix-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zabbix -d zabbix"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  zabbix-server:
+    image: zabbix/zabbix-server-pgsql:alpine-7.0.9
+    container_name: cs-zabbix-server
+    depends_on:
+      zabbix-db:
+        condition: service_healthy
+    environment:
+      DB_SERVER_HOST: zabbix-db
+      POSTGRES_USER: zabbix
+      POSTGRES_PASSWORD: zabbix
+      POSTGRES_DB: zabbix
+      ZBX_STARTPOLLERS: 5
+      ZBX_CACHESIZE: 64M
+    ports:
+      - "10051:10051"
+
+  zabbix-web:
+    image: zabbix/zabbix-web-nginx-pgsql:alpine-7.0.9
+    container_name: cs-zabbix-web
+    depends_on:
+      zabbix-db:
+        condition: service_healthy
+      zabbix-server:
+        condition: service_started
+    environment:
+      ZBX_SERVER_HOST: zabbix-server
+      DB_SERVER_HOST: zabbix-db
+      POSTGRES_USER: zabbix
+      POSTGRES_PASSWORD: zabbix
+      POSTGRES_DB: zabbix
+      PHP_TZ: America/Sao_Paulo
+    ports:
+      - "8090:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/ping || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+
+  zabbix-agent:
+    image: zabbix/zabbix-agent2:alpine-7.0.9
+    container_name: cs-zabbix-agent
+    depends_on:
+      - zabbix-server
+    environment:
+      ZBX_HOSTNAME: "Zabbix server"
+      ZBX_SERVER_HOST: zabbix-server
+    privileged: true
+
+  # Cria hosts, itens (HTTP agent lendo /health e /metrics) e triggers via API do Zabbix.
+  # Roda uma vez e encerra; e idempotente, entao pode ser reexecutado a vontade.
+  zabbix-provisioner:
+    image: python:3.12-alpine
+    container_name: cs-zabbix-provisioner
+    depends_on:
+      zabbix-web:
+        condition: service_healthy
+    environment:
+      ZABBIX_URL: http://zabbix-web:8080/api_jsonrpc.php
+      ZABBIX_USER: Admin
+      ZABBIX_PASSWORD: zabbix
+    volumes:
+      - ./deploy/zabbix:/provisionamento:ro
+    command: ["python", "/provisionamento/provisionar.py"]
+    restart: on-failure:5
+
+volumes:
+  postgres-data:
+  zabbix-db-data:

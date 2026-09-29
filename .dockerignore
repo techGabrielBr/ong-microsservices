@@ -1,0 +1,8 @@
+**/bin
+**/obj
+**/.vs
+**/.vscode
+**/node_modules
+deploy/k8s
+.git
+*.user

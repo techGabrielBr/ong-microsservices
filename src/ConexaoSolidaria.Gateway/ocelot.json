@@ -1,0 +1,81 @@
+{
+  "GlobalConfiguration": {
+    "BaseUrl": "http://localhost:8080"
+  },
+  "Routes": [
+    {
+      "UpstreamPathTemplate": "/api/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "PATCH" ],
+      "DownstreamPathTemplate": "/api/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "api", "Port": 8080 }
+      ]
+    },
+    {
+      "UpstreamPathTemplate": "/swagger/{everything}",
+      "UpstreamHttpMethod": [ "GET" ],
+      "DownstreamPathTemplate": "/swagger/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "api", "Port": 8080 }
+      ]
+    },
+
+    {
+      "UpstreamPathTemplate": "/api-health",
+      "UpstreamHttpMethod": [ "GET" ],
+      "DownstreamPathTemplate": "/health/ready",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "api", "Port": 8080 }
+      ]
+    },
+    {
+      "UpstreamPathTemplate": "/api-live",
+      "UpstreamHttpMethod": [ "GET" ],
+      "DownstreamPathTemplate": "/health/live",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "api", "Port": 8080 }
+      ]
+    },
+    {
+      "UpstreamPathTemplate": "/api-metrics",
+      "UpstreamHttpMethod": [ "GET" ],
+      "DownstreamPathTemplate": "/metrics",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "api", "Port": 8080 }
+      ]
+    },
+
+    {
+      "UpstreamPathTemplate": "/worker-health",
+      "UpstreamHttpMethod": [ "GET" ],
+      "DownstreamPathTemplate": "/health/ready",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "worker", "Port": 8080 }
+      ]
+    },
+    {
+      "UpstreamPathTemplate": "/worker-live",
+      "UpstreamHttpMethod": [ "GET" ],
+      "DownstreamPathTemplate": "/health/live",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "worker", "Port": 8080 }
+      ]
+    },
+    {
+      "UpstreamPathTemplate": "/worker-metrics",
+      "UpstreamHttpMethod": [ "GET" ],
+      "DownstreamPathTemplate": "/metrics",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "worker", "Port": 8080 }
+      ]
+    }
+  ]
+}
